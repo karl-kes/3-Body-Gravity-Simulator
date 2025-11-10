@@ -2,15 +2,23 @@
 #include <cassert>
 #include <cmath>
 #include <iomanip>
+#include <vector>
 
 double G{ 6.67e-11 };
 
-class Vec_3D {
-public:
+struct Vec_3D {
     double x_, y_, z_;
-    double magnitude() {
+    double norm() {
         return std::sqrt( x_*x_ + y_*y_ + z_*z_ );
     }
+};
+struct State {
+    std::vector<Vec_3D> positions;
+    std::vector<Vec_3D> velocities;
+};
+struct Derivative {
+    std::vector<Vec_3D> d_pos;
+    std::vector<Vec_3D> d_vel;
 };
 
 Vec_3D operator+( Vec_3D const &vec, Vec_3D const &other ) {
@@ -43,14 +51,24 @@ public:
     Body ( Vec_3D pos, Vec_3D vel, double mass ) 
          : pos_( pos ), vel_( vel ), acc_{ 0, 0, 0 }, mass_( mass ) {}
     
-    Vec_3D calculate_force( Body const &other ) {
-        Vec_3D R{ other.pos_ - pos_ };
-        double dist{ R.magnitude() };
+    Vec_3D calculate_force( std::vector<Body> const &other_bodies ) {
+        Vec_3D total_force{ 0, 0, 0 };
 
-        if ( dist < 1.0e-10 ) return{ 0, 0, 0 };
-        double force_mag{ G*mass_*other.mass_ / ( dist * dist ) };
+        for ( std::size_t idx{ 0 }; idx < other_bodies.size(); ++idx ) {
+            Vec_3D R{ other_bodies[idx].pos_ - pos_ };
+            double dist{ R.norm() };
 
-        return R * ( force_mag / dist );
+            if ( dist < 1.0e-20 ) return{ 0, 0, 0 }; // Avoid dividing by 0.
+            double force_mag{ G*mass_*other_bodies[idx].mass_ / ( dist * dist ) };
+
+            total_force = R * ( force_mag / dist );
+        }
+
+        return total_force;
+    }
+
+    Vec_3D calculate_acceleration( std::vector<Body> const &other_bodies ) {
+        return ( calculate_force( other_bodies ) * (1.0 / mass_) );
     }
 
     void reset_acceleration() { acc_ = { 0, 0, 0 }; }
@@ -59,16 +77,31 @@ public:
     }
 
     void update( double dt ) {
-        vel_ += acc_ * dt;
         pos_ += vel_ * dt;
+        vel_ += acc_ * dt;
     }
-
+    
+    // Getters:
     Vec_3D get_pos() const { return pos_; }
     Vec_3D get_vel() const { return vel_; }
+    Vec_3D get_acc() const { return acc_; }
     double get_mass() const { return mass_; }
+
+    // Setters:
+    void set_pos( Vec_3D const &new_pos ) {
+        pos_ = new_pos;
+    }
+    void set_vel( Vec_3D const &new_vel ) {
+        vel_ = new_vel;
+    }
+    void set_acc( Vec_3D const &new_acc ) {
+        acc_ = new_acc;
+    }
 };
 
 int main() {
+    std::cout << "Use 'g++ -std=c++17 name.cpp -o main.exe ; ./main.exe' to run from terminal." << std::endl;
+    
     static constexpr double MASS{ 1.0e20 };
     static constexpr double POS{ 1.0e4 };
     static constexpr double dt{ 0.1 };
@@ -78,6 +111,8 @@ int main() {
     Body B_1{ { -1.0*POS, POS, POS }, { 0, 0, 0 }, MASS };
     Body B_2{ { POS, -1.0*POS, POS }, { 0, 0, 0 }, MASS };
     Body B_3{ { POS, POS, -1.0*POS }, { 0, 0, 0 }, MASS };
+
+    std::vector<Body> bodies{ B_1, B_2, B_3 };
 
     std::cout << "<--- 3-Body Simulation --->" << std::endl;
 
@@ -116,25 +151,25 @@ int main() {
         std::cout << "Body 1: Pos(" << pos1.x_/1000.0 << ", " 
                                     << pos1.y_/1000.0 << ", " 
                                     << pos1.z_/1000.0 << ") km, ";
-        std::cout << "Vel: " << vel1.magnitude() << " m/s" << std::endl;
+        std::cout << "Vel: " << vel1.norm() << " m/s" << std::endl;
         
         Vec_3D pos2 = B_2.get_pos();
         Vec_3D vel2 = B_2.get_vel();
         std::cout << "Body 2: Pos(" << pos2.x_/1000.0 << ", " 
                                     << pos2.y_/1000.0 << ", " 
                                     << pos2.z_/1000.0 << ") km, ";
-        std::cout << "Vel: " << vel2.magnitude() << " m/s" << std::endl;
+        std::cout << "Vel: " << vel2.norm() << " m/s" << std::endl;
         
         Vec_3D pos3 = B_3.get_pos();
         Vec_3D vel3 = B_3.get_vel();
         std::cout << "Body 3: Pos(" << pos3.x_/1000.0 << ", " 
                                     << pos3.y_/1000.0 << ", " 
                                     << pos3.z_/1000.0 << ") km, ";
-        std::cout << "Vel: " << vel3.magnitude() << " m/s" << std::endl;
+        std::cout << "Vel: " << vel3.norm() << " m/s" << std::endl;
         
-        std::cout << "Distances: B1-B2: " << ( B_1.get_pos() - B_2.get_pos() ).magnitude() / 1000.0 << " km, ";
-        std::cout << "B1-B3: " << ( B_1.get_pos() - B_3.get_pos() ).magnitude() / 1000.0 << " km, ";
-        std::cout << "B2-B3: " << ( B_2.get_pos() - B_3.get_pos() ).magnitude() / 1000.0 << " km" << std::endl;
+        std::cout << "Distances: B1-B2: " << ( B_1.get_pos() - B_2.get_pos() ).norm() / 1000.0 << " km, ";
+        std::cout << "B1-B3: " << ( B_1.get_pos() - B_3.get_pos() ).norm() / 1000.0 << " km, ";
+        std::cout << "B2-B3: " << ( B_2.get_pos() - B_3.get_pos() ).norm() / 1000.0 << " km" << std::endl;
 
         ++current_step;
     }
