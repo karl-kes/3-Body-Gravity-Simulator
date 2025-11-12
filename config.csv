@@ -1,2 +1,4 @@
-500
-0.1
+# Simulation config; the format is:
+# number-of-steps, dt
+
+500, 50000

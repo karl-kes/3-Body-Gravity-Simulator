@@ -8,8 +8,8 @@
 #include <sstream>
 
 static constexpr double G{ 6.67e-11 };
-static constexpr double CONVERT_TO_KMH{ 3.6 };
-static constexpr double CONVERT_TO_KM{ 1000.0 };
+static constexpr double CONVERT_TO_KMS{ 1.0 / 1000.0 };
+static constexpr double CONVERT_TO_KM{ 1.0 / 1000.0 };
 
 struct Vec_3D {
     double x_, y_, z_;
@@ -95,7 +95,10 @@ void load_csv_bodies( std::string file_name, std::vector<Body> &bodies ) {
         }
 
         if ( values.size() == 7 ) {
-            bodies.push_back( { { values[0], values[1], values[2] }, { values[3], values[4], values[5] }, values[6] } );
+            bodies.push_back( { { values[0], values[1], values[2] }, // Positions
+                                { values[3], values[4], values[5] }, // Velocities
+                                values[6]                            // Mass
+                              } );
         }
     }
     file.close();
@@ -110,28 +113,38 @@ void load_simulation_settings( std::string file_name, double &dt, int &steps ) {
     }
 
     std::string line{};
-    while ( std::getline( file, line ) ) { 
+    while ( std::getline( file, line ) ) {
         if ( line.empty() || line[0] == '#' ) continue;
+
+        std::stringstream string_stream( line );
+        std::string segment{};
+        std::vector<double> values{};
+
+        while ( std::getline( string_stream, segment, ',' ) ) {
+            values.push_back( std::stod( segment ) );
+        }
+
+        if ( values.size() == 2 ) {
+            steps = values[0];
+            dt = values[1];
+        }
     }
+    file.close();
 }
 
 int main() {
-    double dt{0.1};
+    double dt{};
     int steps{};
-    int current_step{};
+    load_simulation_settings( "config.csv", dt, steps );
 
     std::vector<Body> bodies{};
     load_csv_bodies( "bodies.csv", bodies );
 
-    std::cout << "<--- 3-Body Simulation --->" << std::endl;
-
-    std::cout << "\nNumber of simulation steps: ";
-    std::cin >> steps;
-
+    std::cout << "<--- N-Body Simulation --->" << std::endl;
     std::cout << "\nStarting N-Body Simulation..." << std::endl;
     std::cout << std::fixed << std::setprecision( 2 );
 
-    for( steps; steps > 0; --steps ) {
+    for( int current_step{}; current_step < steps; ++current_step ) {
         // Calculates new acceleration.
         for ( std::size_t idx{ 0 }; idx < bodies.size(); ++idx ) {
             bodies[idx].calculate_new_acc( bodies );
@@ -149,30 +162,27 @@ int main() {
             Vec_3D curr_body_pos{ bodies[idx].get_pos() };
             Vec_3D curr_body_vel{ bodies[idx].get_vel() };
 
-            std::cout << "Body " << idx + 1 << ": Pos(" << curr_body_pos.x_ / CONVERT_TO_KM << ", " 
-                                                    << curr_body_pos.y_ / CONVERT_TO_KM << ", " 
-                                                    << curr_body_pos.z_ / CONVERT_TO_KM << ") km, ";
+            std::cout << "Body " << idx + 1 << ": Pos(" << curr_body_pos.x_ * CONVERT_TO_KM << ", " 
+                                                    << curr_body_pos.y_ * CONVERT_TO_KM << ", " 
+                                                    << curr_body_pos.z_ * CONVERT_TO_KM << ") km, ";
 
-            std::cout << "Vel(" << curr_body_vel.x_ * CONVERT_TO_KMH << ", " 
-                                << curr_body_vel.y_ * CONVERT_TO_KMH << ", " 
-                                << curr_body_vel.z_ * CONVERT_TO_KMH << ") km/h, ";
-            std::cout << "Speed: " << curr_body_vel.norm() * CONVERT_TO_KMH << " km/h" << std::endl;
+            std::cout << "Vel(" << curr_body_vel.x_ * CONVERT_TO_KMS << ", " 
+                                << curr_body_vel.y_ * CONVERT_TO_KMS << ", " 
+                                << curr_body_vel.z_ * CONVERT_TO_KMS << ") km/s, ";
+            std::cout << "Speed: " << curr_body_vel.norm() * CONVERT_TO_KMS << " km/s" << std::endl;
         }
         std::cout << std::endl;
 
         // Displays distance form all bodies to the other.
         for ( std::size_t idx{ 0 }; idx < bodies.size(); ++idx ) {
-            for ( std::size_t second_idx{ 0 }; second_idx < bodies.size(); ++second_idx ) {
-                if ( idx == second_idx ) continue;
-
+            for ( std::size_t second_idx{ idx + 1 }; second_idx < bodies.size(); ++second_idx ) {
                 Vec_3D R{ bodies[idx].get_pos() - bodies[second_idx].get_pos() };
                 std::cout << "Distance: B" << idx + 1 << "-B"
                                            << second_idx + 1 << ": "
-                                           << R.norm() / CONVERT_TO_KM << " km" << std::endl;
+                                           << R.norm() * CONVERT_TO_KM << " km" << std::endl;
             }
             std::cout << std::endl;
         }
-        ++current_step;
     }
 
     std::cout << "\n<--- End of Simulation --->" << std::endl;
