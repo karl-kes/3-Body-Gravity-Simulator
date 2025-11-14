@@ -152,7 +152,7 @@ int main() {
     double max_energy_drift{};
 
     for( int current_step{}; current_step < steps; ++current_step ) {
-        // Calculates new acceleration.
+        // Calculates new acceleration
         for ( std::size_t idx{ 0 }; idx < bodies.size(); ++idx ) {
             bodies[idx].calculate_new_acc( bodies );
         }
