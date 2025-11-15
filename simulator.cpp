@@ -146,13 +146,15 @@ int main() {
     std::cin >> num_outputs;
 
     std::cout << "\nStarting N-Body Simulation..." << std::endl;
-    auto start_time{ std::chrono::high_resolution_clock::now() };
+    std::ofstream out_file( "trajectories.csv" );
+    out_file << "step,body_id,x,y,z\n";
 
     // Keep values in scientific notation to 3 sig figs.
     std::cout << std::scientific << std::setprecision( 3 );
     double initial_energy{ calculate_total_energy( bodies ) };
     double max_energy_drift{};
 
+    auto start_time{ std::chrono::high_resolution_clock::now() };
     for( int current_step{}; current_step < steps; ++current_step ) {
         // Calculates new acceleration.
         for ( std::size_t idx{ 0 }; idx < bodies.size(); ++idx ) {
@@ -168,31 +170,16 @@ int main() {
         int output_interval = steps / num_outputs;
         if (current_step % output_interval == 0 || current_step == steps - 1) {
             std::cout << "\n<--- Step: " << ( current_step + 1 ) << " --->" << std::endl;
-
             // Displays the current position and velocity for all bodies.
             for ( std::size_t idx{ 0 }; idx < bodies.size(); ++idx ) {
                 Vec_3D curr_body_pos{ bodies[idx].get_pos() };
                 Vec_3D curr_body_vel{ bodies[idx].get_vel() };
 
-                std::cout << "Body " << idx + 1 << ": Pos(" << curr_body_pos.x_ * CONVERT_TO_KM << ", " 
-                                                        << curr_body_pos.y_ * CONVERT_TO_KM << ", " 
-                                                        << curr_body_pos.z_ * CONVERT_TO_KM << ") km, ";
-
-                std::cout << "Vel(" << curr_body_vel.x_ * CONVERT_TO_KMS << ", " 
-                                    << curr_body_vel.y_ * CONVERT_TO_KMS << ", " 
-                                    << curr_body_vel.z_ * CONVERT_TO_KMS << ") km/s, ";
-                std::cout << "Speed: " << curr_body_vel.norm() * CONVERT_TO_KMS << " km/s" << std::endl;
-            }
-            std::cout << std::endl;
-
-            // Displays distance form all bodies to the other.
-            for ( std::size_t idx{ 0 }; idx < bodies.size(); ++idx ) {
-                for ( std::size_t second_idx{ idx + 1 }; second_idx < bodies.size(); ++second_idx ) {
-                    Vec_3D R{ bodies[idx].get_pos() - bodies[second_idx].get_pos() };
-                    std::cout << "Distance: B" << idx + 1 << "-B"
-                                            << second_idx + 1 << ": "
-                                            << R.norm() * CONVERT_TO_KM << " km" << std::endl;
-                }
+                out_file << current_step << "," 
+                            << idx << ","
+                            << curr_body_pos.x_ << ","
+                            << curr_body_pos.y_ << ","
+                            << curr_body_pos.z_ << "\n";
             }
         }
         double current_energy{ calculate_total_energy( bodies ) };
@@ -205,6 +192,8 @@ int main() {
     std::cout << "Max Energy Drift: " << max_energy_drift << "%." << std::endl;
     std::cout << "Time elapsed: " << time_elapsed << " seconds." << std::endl;
     std::cout << "\n<--- End of Simulation --->" << std::endl;
+
+    out_file.close();
 
     return 0;
 }
